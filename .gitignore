@@ -1,2 +1,4 @@
 # librerie Leap Motion
 lib/
+
+*.pyc

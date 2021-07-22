@@ -2,6 +2,14 @@
 
 Un esperimento per controllare il Tinkerkit Braccio tramite un Leap Motion.
 
+## Struttura del progetto
+
+- 📁 [src](src): codice sorgente
+- 📁 [lib](lib): librerie Leap Motion
+- 📁 [arduino](arduino): contiene lo skectch Arduino
+- 📁 [.vscode](.vscode): impostazioni di VS Code
+- 📄 [README.md](README.md): questo file
+
 ## Dipendenze
 
 - Python 2.7
