@@ -12,6 +12,16 @@ from ik import Position, braccio_ik
 
 ARDUINO_SERIAL_PATH = '/dev/ttyACM0'
 
+def clamp_range(n, min, max):
+    return max if n > max else min if n < min else n
+
+
+def map_range(n, start1, stop1, start2, stop2, clamp=True):
+    mapped = (n - start1) * (stop2 - start2) / (stop1 - start1) + start2
+    if clamp:
+        return clamp_range(mapped, start2, stop2)
+    return mapped
+
 
 class BraccioListener(Leap.Listener):
 
@@ -44,19 +54,39 @@ class BraccioListener(Leap.Listener):
         y = hand.palm_position.z
         z = hand.palm_position.y
 
-        self._move_braccio(x, y, z)
+        # distance between the fingers
+        thumbs = hand.fingers.finger_type(Leap.Finger.TYPE_THUMB)
+        if thumbs.is_empty:
+            print("Thumb not found")
+            return
 
-    def _move_braccio(self, x, y, z):
-        # fixed angles
-        wrist_rot = 90
-        gripper = 40
+        indexes = hand.fingers.finger_type(Leap.Finger.TYPE_INDEX)
+        if indexes.is_empty:
+            print("Index finger not found")
+            return
 
+        thumb = thumbs[0]
+        index = indexes[0]
+        distance = thumb.tip_position.distance_to(index.tip_position)
+
+        self._move_braccio(x, y, z, distance)
+
+    def _move_braccio(self, x, y, z, fingers_distance):
+        # use ik to calculate base, shoulder, elbow, wrist_ver
         target_pos = Position(x, y, z)
         ik_angles = braccio_ik(target_pos)
 
         if ik_angles is None:
             print("position unreachable")
             return
+
+        # use distance betwen fingers to claculate gripper angle
+        # 50 finger distance -> 0 degrees angle (open)
+        # 10 finger distance -> 73 degrees angle (closed)
+        gripper = map_range(fingers_distance, 50, 10, 0, 73)
+
+        # use fixed angle for wrist_rot
+        wrist_rot = 90
 
         angles = Angles(
             base=ik_angles.base,
