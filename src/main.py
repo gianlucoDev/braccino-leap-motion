@@ -1,3 +1,7 @@
+# allows to use python3 print function
+from __future__ import print_function
+
+# import motion leap libs
 import os
 import sys
 import inspect
@@ -7,19 +11,22 @@ sys.path.insert(0, lib_dir)
 
 import Leap
 
+# import my modules
 from arduino_serial import Angles, connect, set_angles, set_speed
 from ik import Position, braccio_ik
 
+
 ARDUINO_SERIAL_PATH = '/dev/ttyACM0'
 
-def clamp_range(n, min, max):
+
+def clamp(n, min, max):
     return max if n > max else min if n < min else n
 
 
-def map_range(n, start1, stop1, start2, stop2, clamp=True):
+def translate(n, start1, stop1, start2, stop2, clamp_output=True):
     mapped = (n - start1) * (stop2 - start2) / (stop1 - start1) + start2
-    if clamp:
-        return clamp_range(mapped, start2, stop2)
+    if clamp_output:
+        return clamp(mapped, start2, stop2)
     return mapped
 
 
@@ -45,8 +52,6 @@ class BraccioListener(Leap.Listener):
             return
 
         hand = frame.hands[0]
-        print("Frame id: %d, timestamp: %d, palm_position: %s" % (
-            frame.id, frame.timestamp, hand.palm_position))
 
         # Z axis (height) for the braccio corresponds to y axis for leapmotion
         # and y axis is flipped
@@ -72,6 +77,16 @@ class BraccioListener(Leap.Listener):
         self._move_braccio(x, y, z, distance)
 
     def _move_braccio(self, x, y, z, fingers_distance):
+        print("%d %d %d" % (x, y, z), end="")
+
+        # apply offset so the braccio only points "forward" (towards negative y)
+        y -= 300
+
+        # translate z to make it easier to manouver
+        z = translate(z, 100, 300, 0, 400, clamp_output=False)
+
+        print(" -> %d %d %d" % (x, y, z))
+
         # use ik to calculate base, shoulder, elbow, wrist_ver
         target_pos = Position(x, y, z)
         ik_angles = braccio_ik(target_pos)
@@ -83,7 +98,7 @@ class BraccioListener(Leap.Listener):
         # use distance betwen fingers to claculate gripper angle
         # 50 finger distance -> 0 degrees angle (open)
         # 10 finger distance -> 73 degrees angle (closed)
-        gripper = map_range(fingers_distance, 50, 10, 0, 73)
+        gripper = translate(fingers_distance, 50, 10, 0, 73)
 
         # use fixed angle for wrist_rot
         wrist_rot = 90
